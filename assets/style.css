@@ -1,0 +1,52 @@
+
+/* ====================== */
+/* ESTILO PREMIUM GLOBAL  */
+/* ====================== */
+
+body, .stApp {
+    background-color: #f6f7f9 !important;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Encabezado */
+.zg-header {
+    background: linear-gradient(90deg, #0b8a3b, #21c06b);
+    padding: 30px 40px;
+    border-radius: 16px;
+    margin-bottom: 30px;
+    color: white;
+}
+
+.zg-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+}
+
+.zg-subtitle {
+    font-size: 1.1rem;
+    margin-top: -6px;
+    opacity: 0.95;
+}
+
+/* Tarjetas Premium */
+.zg-card {
+    background: white;
+    border-radius: 14px;
+    padding: 20px 26px;
+    box-shadow: 0px 2px 10px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+}
+
+.zg-section-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    color: #0a2a18;
+}
+
+.zg-section-sub {
+    font-size: 0.95rem;
+    color: #58746a;
+    margin-bottom: 20px;
+}
+    
