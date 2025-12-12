@@ -16,7 +16,8 @@ import plotly.express as px
 st.set_page_config(
     page_title="ZAGAZ · Dashboard Estratégico GNV",
     page_icon="💠",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"  # Sidebar colapsado por defecto (mejor para móvil)
 )
 
 # ---------------------------------------------------------
@@ -85,7 +86,7 @@ if not css_path.exists():
 with open(css_path) as css:
     st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
 
-# CSS para bordes verdes en gráficos de Plotly
+# CSS para bordes verdes en gráficos de Plotly y responsive design
 st.markdown("""
 <style>
     /* Borde verde para todos los gráficos de Plotly */
@@ -139,6 +140,137 @@ st.markdown("""
     }
     .stDateInput button {
         color: #22c55e !important;
+    }
+    
+    /* ========================================
+       RESPONSIVE DESIGN PARA MÓVIL Y TABLET
+       ======================================== */
+    
+    /* Media query para tablets (768px - 1024px) */
+    @media (max-width: 1024px) {
+        /* Reducir tamaño de títulos principales */
+        h2 {
+            font-size: 1.4rem !important;
+        }
+        
+        /* Ajustar header */
+        .zg-header .zg-title {
+            font-size: 1.8rem !important;
+        }
+        .zg-header .zg-subtitle {
+            font-size: 0.9rem !important;
+        }
+        
+        /* Reducir padding en gráficos */
+        [data-testid="stPlotlyChart"] {
+            padding: 10px !important;
+        }
+        
+        /* KPIs más compactos */
+        .zg-card {
+            padding: 15px 18px !important;
+        }
+    }
+    
+    /* Media query para móviles (menos de 768px) */
+    @media (max-width: 768px) {
+        /* Sidebar colapsado por defecto */
+        section[data-testid="stSidebar"] {
+            width: 0px !important;
+        }
+        section[data-testid="stSidebar"][aria-expanded="true"] {
+            width: 280px !important;
+        }
+        
+        /* Reducir títulos principales */
+        h2 {
+            font-size: 1.2rem !important;
+            margin-top: 20px !important;
+            margin-bottom: 15px !important;
+        }
+        
+        h3 {
+            font-size: 1rem !important;
+        }
+        
+        /* Header más compacto */
+        .zg-header {
+            padding: 20px 20px !important;
+        }
+        .zg-header .zg-title {
+            font-size: 1.5rem !important;
+        }
+        .zg-header .zg-subtitle {
+            font-size: 0.85rem !important;
+        }
+        
+        /* Ocultar imagen del header en móvil */
+        .zg-header img {
+            display: none !important;
+        }
+        
+        /* KPIs más compactos */
+        .zg-card {
+            padding: 12px 15px !important;
+            margin-bottom: 15px !important;
+        }
+        .zg-card div[style*="font-size:2.2rem"] {
+            font-size: 1.8rem !important;
+        }
+        .zg-card div[style*="font-size:4rem"] {
+            font-size: 2.5rem !important;
+        }
+        
+        /* Gráficos más pequeños */
+        [data-testid="stPlotlyChart"] {
+            padding: 8px !important;
+            border-width: 2px !important;
+        }
+        
+        /* Footer más compacto */
+        .zg-header + div {
+            padding: 20px 15px !important;
+        }
+        
+        /* Reducir márgenes generales */
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        /* Botones de descarga apilados */
+        .stDownloadButton {
+            margin-bottom: 10px !important;
+        }
+        
+        /* Expander más compacto */
+        .stExpander {
+            font-size: 0.9rem !important;
+        }
+    }
+    
+    /* Media query para móviles muy pequeños (menos de 480px) */
+    @media (max-width: 480px) {
+        h2 {
+            font-size: 1.1rem !important;
+        }
+        
+        .zg-header .zg-title {
+            font-size: 1.3rem !important;
+        }
+        
+        .zg-header .zg-subtitle {
+            font-size: 0.75rem !important;
+            line-height: 1.4 !important;
+        }
+        
+        /* KPIs aún más compactos */
+        .zg-card div[style*="font-size:2.2rem"] {
+            font-size: 1.5rem !important;
+        }
+        .zg-card div[style*="font-size:4rem"] {
+            font-size: 2rem !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
