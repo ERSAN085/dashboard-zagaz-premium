@@ -563,7 +563,9 @@ df_filtered = apply_filters(df, filters) if not df.empty else df
 registros_filtrados = len(df_filtered) if not df_filtered.empty else 0
 total_muestra = len(df) if not df.empty else 1  # Evitar división por cero
 porcentaje_filtrado = (registros_filtrados / total_muestra) * 100
-universo_proyectado = int(round((registros_filtrados / total_muestra) * KPI_UNIVERSO_TOTAL))
+# Usar universo correcto: Taxis (1739) + Uber/Didi (1331) = 3070
+UNIVERSO_CONVERTIBLE = 1739 + 1331  # 3070 unidades (excluyendo autobuses y vagonetas)
+universo_proyectado = int(round((registros_filtrados / total_muestra) * UNIVERSO_CONVERTIBLE))
 
 kpi_html = f"""
 <div class='zg-card' style='margin-bottom:20px; border:3px solid #10b981;'>
