@@ -553,12 +553,18 @@ def generate_insights(kpis, df, df_total):
 
 # Crear placeholder para KPI dinámico en sidebar (se actualiza después de filtros)
 kpi_placeholder = st.sidebar.empty()
+kpi_porcentaje_placeholder = st.sidebar.empty()
+kpi_universo_placeholder = st.sidebar.empty()
 
 filters = sidebar_filters(df)
 df_filtered = apply_filters(df, filters) if not df.empty else df
 
-# Actualizar KPI dinámico en el placeholder (arriba de filtros)
+# Actualizar KPIs dinámicos en los placeholders (arriba de filtros)
 registros_filtrados = len(df_filtered) if not df_filtered.empty else 0
+total_muestra = len(df) if not df.empty else 1  # Evitar división por cero
+porcentaje_filtrado = (registros_filtrados / total_muestra) * 100
+universo_proyectado = int(round((registros_filtrados / total_muestra) * KPI_UNIVERSO_TOTAL))
+
 kpi_html = f"""
 <div class='zg-card' style='margin-bottom:20px; border:3px solid #10b981;'>
     <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Registros validados</div>
@@ -567,6 +573,26 @@ kpi_html = f"""
 </div>
 """
 kpi_placeholder.markdown(kpi_html, unsafe_allow_html=True)
+
+# KPI 2: Porcentaje de la muestra
+kpi_porcentaje_html = f"""
+<div class='zg-card' style='margin-bottom:20px; border:3px solid #10b981;'>
+    <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Porcentaje de muestra</div>
+    <div style='font-size:2.2rem; font-weight:900; color:#0f172a;'>{porcentaje_filtrado:.1f}%</div>
+    <div style='font-size:0.85rem; color:#10b981;'>De {total_muestra:,} registros totales</div>
+</div>
+"""
+kpi_porcentaje_placeholder.markdown(kpi_porcentaje_html, unsafe_allow_html=True)
+
+# KPI 3: Proyección al universo
+kpi_universo_html = f"""
+<div class='zg-card' style='margin-bottom:20px; border:3px solid #10b981;'>
+    <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Proyección universo</div>
+    <div style='font-size:2.2rem; font-weight:900; color:#0f172a;'>{universo_proyectado:,}</div>
+    <div style='font-size:0.85rem; color:#10b981;'>Unidades del universo total</div>
+</div>
+"""
+kpi_universo_placeholder.markdown(kpi_universo_html, unsafe_allow_html=True)
 
 # KPIs
 kpis = compute_kpis(df_filtered, df)
