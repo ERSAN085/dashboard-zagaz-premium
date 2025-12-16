@@ -777,10 +777,11 @@ st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
 # compute dynamic KPIs
 registros_filtrados = kpis.get('registros_filtrados', 0)
 visionarios_pct = 0.0
-if 'Perfil_Adopción' in df_filtered.columns:
+# FIJO: calcular % de visionarios de muestra completa (df), no de df_filtered
+if 'Perfil_Adopción' in df.columns:
     try:
         # detectar valores que indiquen 'visionario'
-        values = df_filtered['Perfil_Adopción'].dropna().astype(str)
+        values = df['Perfil_Adopción'].dropna().astype(str)
         mask = values.str.lower().str.contains('vision')
         if len(values) > 0:
             visionarios_pct = mask.sum() / len(values)
