@@ -1411,10 +1411,11 @@ nota_html = """
 <div class='zg-card' style='border:3px solid #10b981;'>
     <div style='font-size:0.85rem; color:#475569; text-transform:uppercase; margin-bottom:12px;'>Notas sobre esta sección</div>
     <div style='font-size:0.9rem; color:#374151; line-height:1.5;'>
-    &middot; Los KPI mostrados no se calculan sobre el universo total ni sobre las 273 encuestas, sino sobre el <strong>porcentaje de visionarios detectado</strong> y su proyección al parque completo.<br>
+    &middot; Los KPI mostrados no se calculan sobre el universo total ni directamente sobre las 273 encuestas, sino sobre el <strong>porcentaje de visionarios detectado</strong> en el muestreo y su proyección al parque vehicular completo.<br>
     &middot; Se incluyen únicamente <strong>unidades anteriores a 2016</strong>, por ser las que están fuera de norma y representan el potencial inmediato de sustitución.<br>
-    &middot; La <strong>fase de sustitución</strong> iniciará después de los primeros seis meses de activar y consolidar a los early adopters.<br>
-    &middot; El volumen estimado deberá pasar por un <strong>embudo de elegibilidad crediticia</strong>, cuyo detalle se desarrollará en el Resumen Ejecutivo.
+    &middot; La <strong>fase de sustitución</strong> iniciará después de los primeros seis meses, una vez activados y consolidados los early adopters.<br>
+    &middot; El volumen estimado deberá pasar por un <strong>embudo de elegibilidad crediticia</strong>, cuyo detalle se desarrollará en el Resumen Ejecutivo.<br>
+    &middot; Al KPI <strong>Potencial de Sustitución – Volumen Mensual (< 2016)</strong> se le aplicó una <strong>merma operativa del 15%</strong>, para reflejar la pérdida real de capacidad de carga por efectos de presión y temperatura durante el llenado de cilindros en operación diaria.
     </div>
 </div>
 """
@@ -1590,19 +1591,22 @@ with col_edad_kpi:
             total_inelegibles = (mask_edad | mask_inestabilidad).sum()
             total_operadores = len(df_filtered)
             
-            # Expandir al universo
+            # Calcular solo early adopters (visionarios) con restricción crediticia
+            UNIVERSO_CONVERTIBLE = 1739 + 1331  # 3,070 unidades
             n_muestra = len(df_filtered)
-            n_universo = KPI_UNIVERSO_TOTAL if KPI_UNIVERSO_TOTAL > 0 else n_muestra
-            factor = n_universo / n_muestra if n_muestra > 0 else 1
-            inelegibles_universo = int(total_inelegibles * factor)
             
+            # Total de visionarios en el universo
+            visionarios_universo = int(UNIVERSO_CONVERTIBLE * visionarios_pct)
+            
+            # Aplicar porcentaje de inelegibles solo a visionarios
             porcentaje_inelegibles = (total_inelegibles / total_operadores * 100) if total_operadores > 0 else 0
+            inelegibles_visionarios = int(visionarios_universo * (porcentaje_inelegibles / 100))
             
             kpi_edad_html += f"""
 <div style='font-size:4rem; font-weight:900; color:#ef4444; margin-top:15px;'>{porcentaje_inelegibles:.1f}%</div>
 <div style='font-size:1.1rem; color:#ef4444; margin-top:12px; font-weight:600;'>no elegibles para crédito</div>
-<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{inelegibles_universo:,} operadores por edad o empleo</div>
-<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Edad >60: {mayores_60} | Inestabilidad: {inestabilidad}</div>
+<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{inelegibles_visionarios:,} early adopters por edad o empleo</div>
+<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>De {visionarios_universo:,} visionarios | Edad >60: {mayores_60} | Inestabilidad: {inestabilidad}</div>
 """
         except Exception as e:
             kpi_edad_html += f"<div style='color:#ef4444; font-size:0.85rem;'>Error calculando restricciones: {e}</div>"
