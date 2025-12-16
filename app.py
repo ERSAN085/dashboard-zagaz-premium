@@ -375,10 +375,12 @@ def sidebar_filters(df):
         return filters
 
     # --- Filtros solicitados explícitamente por el usuario ---
-    # 1) Tipo de unidad
+    # 1) Tipo de unidad (excluir Vagoneta)
     tipo_col = find_col(df, ["tipo de unidad", "tipo unidad", "tipo"]) 
     if tipo_col:
         vals = sorted(df[tipo_col].dropna().unique().tolist())
+        # Excluir Vagoneta de las opciones
+        vals = [v for v in vals if 'vagoneta' not in v.lower()]
         if vals:
             sel = st.sidebar.multiselect("Tipo de unidad", options=vals, default=vals)
             filters[tipo_col] = sel
@@ -560,7 +562,14 @@ filters = sidebar_filters(df)
 df_filtered = apply_filters(df, filters) if not df.empty else df
 
 # Actualizar KPIs dinámicos en los placeholders (arriba de filtros)
-registros_filtrados = len(df_filtered) if not df_filtered.empty else 0
+# Filtrar solo Taxi y Uber/Didi para los KPIs del sidebar
+tipo_col = find_col(df_filtered, ["tipo de unidad", "tipo unidad", "tipo"])
+if tipo_col and tipo_col in df_filtered.columns:
+    df_kpi_sidebar = df_filtered[df_filtered[tipo_col].isin(['Taxi', 'Uber/Didi'])]
+else:
+    df_kpi_sidebar = df_filtered
+
+registros_filtrados = len(df_kpi_sidebar) if not df_kpi_sidebar.empty else 0
 total_muestra = len(df) if not df.empty else 1  # Evitar división por cero
 porcentaje_filtrado = (registros_filtrados / total_muestra) * 100
 # Usar universo correcto: Taxis (1739) + Uber/Didi (1331) = 3070
@@ -739,11 +748,18 @@ remaining = total_base - trucks_using_gnv - camionetas_no_cargaran - diesel_buse
 insight_html = f"""
 <div class='zg-card' style='border:3px solid #10b981;'>
     <div style='font-size:0.85rem; color:#475569; text-transform:uppercase; margin-bottom:12px;'>Ajuste real del mercado convertible</div>
-    <div style='font-size:0.9rem; color:#374151; line-height:1.5;'>El valor mostrado en el KPI <strong>Universo Total</strong> excluye:<br>
-    &middot; <strong style='color:#0f172a;'>{trucks_using_gnv:,}</strong> autobuses de <em>UNIBUS</em>, que operan con su propia estación de autoconsumo;<br>
-    &middot; <strong style='color:#0f172a;'>{camionetas_no_cargaran:,}</strong> vagonetas de Nayarit, que por dinámicas operativas y geopolíticas no participarían en el sistema local;<br>
+    <div style='font-size:0.9rem; color:#374151; line-height:1.5;'>
+    <strong style='color:#0f172a;'>AJUSTE REAL DEL MERCADO CONVERTIBLE</strong><br><br>
+    El valor mostrado en el KPI <strong>Universo Total</strong> corresponde exclusivamente al mercado directamente convertible a GNV y excluye los siguientes segmentos:<br><br>
+    &middot; <strong style='color:#0f172a;'>240</strong> autobuses de <em>UNIBUS</em>, que operan con estación propia de autoconsumo.<br>
+    &middot; <strong style='color:#0f172a;'>530</strong> vagonetas foráneas, que por dinámicas operativas y geopolíticas no participarían en el sistema local.<br>
     &middot; <strong style='color:#0f172a;'>400</strong> autobuses que conforman el resto del parque vehicular y que actualmente operan con diésel.<br><br>
-    El KPI refleja únicamente el mercado directamente convertible a GNV, mientras que el segmento diésel requiere una estrategia específica de sustitución que detallaremos en el informe ejecutivo.
+    El segmento diésel requiere una estrategia específica de sustitución, la cual se abordará de forma independiente en el informe ejecutivo.<br><br>
+    <strong style='color:#0f172a;'>CONSIDERACIONES SOBRE LA MUESTRA</strong><br><br>
+    &middot; El levantamiento original contempla <strong>273 entrevistas</strong>.<br>
+    &middot; Para efectos analíticos y con el objetivo de evitar distorsiones en la lectura del dashboard, se excluyeron del dataset y de los filtros las vagonetas, al representar un subsegmento no operativo para la estación y contar con una muestra no representativa.<br>
+    &middot; El análisis final se construye sobre <strong>260 registros válidos</strong>, lo que permite mantener un alto grado de certeza estadística.<br>
+    &middot; La proyección al universo total de <strong>3,070 unidades</strong> se realiza mediante extrapolación proporcional, aplicando la distribución observada en la muestra depurada (260 registros) sobre el universo definido como directamente convertible a GNV.
     </div>
 </div>
 """
@@ -820,7 +836,7 @@ with kcols[1]:
             <div>
                 <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Consumo promedio diario (L)</div>
                 <div style='font-size:2.2rem; font-weight:900; color:#0f172a;'>{consumo_promedio:.1f}</div>
-                <div style='font-size:0.85rem; color:#10b981;'>Por unidad activa</div>
+                <div style='font-size:0.85rem; color:#10b981;'>Por unidad activa (gasolina)</div>
             </div>
             {img_html_consumo}
         </div>
@@ -849,8 +865,11 @@ with kcols[2]:
         </div>
         """, unsafe_allow_html=True)
 
-# KPI dinámico: litros generados si convertimos visionarios (se calculará para usar después del gráfico)
-litros_generados = visionarios_pct * consumo_promedio * 26 * registros_filtrados
+# KPI dinámico: litros generados usando conversiones del universo
+# Fórmula: (Consumo Promedio × (1 - Merma 15%)) × Número de Conversiones × 26 días
+MERMA_OPERATIVA = 0.15  # 15% de pérdida por condiciones operativas
+consumo_promedio_con_merma = consumo_promedio * (1 - MERMA_OPERATIVA)
+litros_generados = conversions * consumo_promedio_con_merma * 26
 
 # Curva de Gauss: Adopción de Innovaciones con datos reales del mercado
 st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
@@ -966,13 +985,26 @@ if 'Perfil_Adopción' in df_filtered.columns:
 else:
     st.info('Columna "Perfil_Adopción" no encontrada.')
 
-# Layout 2x2: Primera fila con insights, segunda fila con notas
+# Layout de 3 KPIs: Merma operativa + Potencial mensual + Proyección anual
 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-# Primera fila: Potencial mensual + Proyección anual (mismo ancho)
-col_mensual, col_anual = st.columns([1, 1])
-
+# La merma ya está aplicada en litros_generados
 litros_anuales = litros_generados * 12
+
+col_merma, col_mensual, col_anual = st.columns([1, 1, 1])
+
+with col_merma:
+    # KPI de Merma Operativa
+    merma_html = f"""
+    <div class='zg-card' style='border:3px solid #f59e0b; position:relative;'>
+        <div>
+            <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Merma Operativa</div>
+            <div style='font-size:2.2rem; font-weight:900; color:#0f172a; margin-top:8px;'>{MERMA_OPERATIVA*100:.0f}%</div>
+            <div style='font-size:0.85rem; color:#f59e0b;'>Presión y temperatura</div>
+        </div>
+    </div>
+    """
+    st.markdown(merma_html, unsafe_allow_html=True)
 
 with col_mensual:
     # Cargar imagen para el KPI
@@ -989,7 +1021,7 @@ with col_mensual:
         <div>
             <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Potencial mensual</div>
             <div style='font-size:2.2rem; font-weight:900; color:#0f172a; margin-top:8px;'>{litros_generados:,.0f} L</div>
-            <div style='font-size:0.85rem; color:#10b981;'>Mercado visionario</div>
+            <div style='font-size:0.85rem; color:#10b981;'>Mercado visionario (neto)</div>
         </div>
         {img_html_mensual}
     </div>
@@ -1011,7 +1043,7 @@ with col_anual:
         <div>
             <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Proyección anual</div>
             <div style='font-size:2.2rem; font-weight:900; color:#0f172a; margin-top:8px;'>{litros_anuales:,.0f} L</div>
-            <div style='font-size:0.85rem; color:#10b981;'>Mercado visionario</div>
+            <div style='font-size:0.85rem; color:#10b981;'>Mercado visionario (neto)</div>
         </div>
         {img_html_anual}
     </div>
@@ -1026,6 +1058,7 @@ notas_html = """
     <div style='font-size:0.9rem; color:#374151; line-height:1.5;'>
     &middot; Esta cifra NO corresponde a convertir únicamente a los visionarios detectados en las 273 encuestas.<br>
     &middot; La muestra es estadísticamente suficiente para extrapolar con precisión el comportamiento al universo total de operadores en Vallarta.<br>
+    &middot; El Potencial Mensual incorpora una merma operativa del 15%, derivada de pérdidas por presión y temperatura en el despacho de GNV. En operación real, un cilindro de 16 LEQ carga en promedio 13.6 LEQ efectivos.<br>
     &middot; El cálculo estima el consumo mensual del segmento visionario completo del mercado (visionarios del universo × consumo diario × 26 días).<br>
     &middot; Este escenario muestra el potencial bruto; a la cifra final habría que aplicarle el proceso natural de decantación propio del negocio GNV, evaluación técnica, elegibilidad de crédito y filtros operativos, para obtener el volumen neto real.<br>
     &middot; Todo este embudo será analizado a profundidad en el informe ejecutivo.
@@ -1352,14 +1385,15 @@ with col_kpi2:
                 # Aplicar porcentaje de visionarios
                 unidades_antiguas_visionarios = int(unidades_antiguas_universo * visionarios_pct)
                 
-                # Calcular volumen mensual total (solo visionarios)
-                litros_mensuales_visionarios = consumo_diario_promedio * unidades_antiguas_visionarios * 30
+                # Calcular volumen mensual total (solo visionarios) con merma del 15%
+                consumo_con_merma = consumo_diario_promedio * (1 - MERMA_OPERATIVA)  # Aplicar 15% de merma
+                litros_mensuales_visionarios = consumo_con_merma * unidades_antiguas_visionarios * 30
                 
                 kpi2_html += f"""
 <div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{litros_mensuales_visionarios:,.0f}</div>
-<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>litros mensuales (segmento visionario)</div>
+<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>litros mensuales (segmento visionario neto)</div>
 <div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{visionarios_pct*100:.1f}% de {unidades_antiguas_universo:,} unidades antiguas</div>
-<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Promedio: {consumo_diario_promedio:.1f} lts/día por unidad</div>
+<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Promedio: {consumo_con_merma:.1f} lts/día neto (merma 15%)</div>
 """
             else:
                 kpi2_html += "<div style='color:#94a3b8; font-size:0.9rem;'>Sin datos de consumo para unidades < 2016</div>"
