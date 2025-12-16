@@ -842,8 +842,19 @@ with kcols[1]:
         </div>
         """, unsafe_allow_html=True)
 with kcols[2]:
-        # KPI dinámico de conversiones basado en el universo real restante (remaining = 3470)
-        conversions = int(round(visionarios_pct * remaining)) if 'remaining' in globals() else int(round(visionarios_pct * KPI_UNIVERSO_TOTAL))
+        # KPI dinámico de conversiones basado en visionarios filtrados
+        # Contar visionarios en la muestra filtrada
+        perfil_col = find_col(df_filtered, ["perfil adop", "perfil", "adopción", "adopcion"])
+        if perfil_col and perfil_col in df_filtered.columns:
+            visionarios_filtrados = (df_filtered[perfil_col] == 'Visionario').sum()
+            total_filtrados = len(df_filtered)
+            visionarios_pct_filtrado = visionarios_filtrados / total_filtrados if total_filtrados > 0 else 0
+        else:
+            visionarios_pct_filtrado = visionarios_pct  # Fallback al porcentaje general
+        
+        # Proyectar al universo convertible (3,070)
+        UNIVERSO_CONVERTIBLE = 1739 + 1331  # Solo Taxi + Uber/Didi
+        conversions = int(round(visionarios_pct_filtrado * UNIVERSO_CONVERTIBLE))
         
         # Cargar imagen para el KPI
         img_path_conversiones = Path("assets/uploads/5.png")
