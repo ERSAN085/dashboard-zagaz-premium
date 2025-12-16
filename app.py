@@ -1318,25 +1318,29 @@ with col_kpi1:
     
     if year_col and year_col in df_filtered.columns:
         try:
-            df_year_clean = pd.to_numeric(df_filtered[year_col], errors='coerce').dropna()
-            unidades_antiguas = (df_year_clean < 2016).sum()
+            # Filtrar solo visionarios de la muestra
+            perfil_col = find_col(df_filtered, ["perfil adop", "perfil", "adopción", "adopcion"])
+            if perfil_col and perfil_col in df_filtered.columns:
+                df_visionarios = df_filtered[df_filtered[perfil_col] == 'Visionario']
+            else:
+                df_visionarios = df_filtered  # Fallback si no existe la columna
             
-            # Expandir al universo
-            n_muestra = len(df_filtered)
-            n_universo = KPI_UNIVERSO_TOTAL if KPI_UNIVERSO_TOTAL > 0 else n_muestra
-            factor = n_universo / n_muestra if n_muestra > 0 else 1
-            unidades_antiguas_universo = int(unidades_antiguas * factor)
+            # De los visionarios, cuántos tienen vehículos <2016
+            df_year_visionarios = pd.to_numeric(df_visionarios[year_col], errors='coerce').dropna()
+            visionarios_antiguos_muestra = (df_year_visionarios < 2016).sum()
+            total_visionarios_muestra = len(df_year_visionarios)
             
-            # Aplicar porcentaje de visionarios
-            unidades_antiguas_visionarios = int(unidades_antiguas_universo * visionarios_pct)
+            # Calcular porcentaje de visionarios con vehículos antiguos
+            pct_visionarios_antiguos = (visionarios_antiguos_muestra / total_visionarios_muestra * 100) if total_visionarios_muestra > 0 else 0
             
-            porcentaje_antiguas = (unidades_antiguas / len(df_year_clean) * 100) if len(df_year_clean) > 0 else 0
+            # Aplicar ese porcentaje a los early adopters del universo (conversions)
+            visionarios_antiguos_universo = int(conversions * (pct_visionarios_antiguos / 100))
             
             kpi1_html += f"""
-<div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{unidades_antiguas_visionarios:,}</div>
-<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>unidades visionarias (fase sustitución)</div>
-<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{visionarios_pct*100:.1f}% de {unidades_antiguas_universo:,} unidades antiguas</div>
-<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Base: {len(df_year_clean)} vehículos en muestra</div>
+<div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{visionarios_antiguos_universo:,}</div>
+<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>early adopters (fase sustitución)</div>
+<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{pct_visionarios_antiguos:.1f}% de {conversions:,} early adopters totales</div>
+<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Base: {visionarios_antiguos_muestra} de {total_visionarios_muestra} visionarios en muestra</div>
 """
         except Exception as e:
             kpi1_html += f"<div style='color:#ef4444; font-size:0.85rem;'>Error calculando antigüedad: {e}</div>"
@@ -1365,34 +1369,39 @@ with col_kpi2:
     
     if year_col and consumo_col and year_col in df_filtered.columns and consumo_col in df_filtered.columns:
         try:
-            # Filtrar unidades < 2016
-            df_temp = df_filtered.copy()
+            # Filtrar solo visionarios de la muestra
+            perfil_col = find_col(df_filtered, ["perfil adop", "perfil", "adopción", "adopcion"])
+            if perfil_col and perfil_col in df_filtered.columns:
+                df_visionarios = df_filtered[df_filtered[perfil_col] == 'Visionario']
+            else:
+                df_visionarios = df_filtered  # Fallback
+            
+            # De los visionarios, filtrar <2016 con datos de consumo
+            df_temp = df_visionarios.copy()
             df_temp[year_col] = pd.to_numeric(df_temp[year_col], errors='coerce')
             df_temp[consumo_col] = pd.to_numeric(df_temp[consumo_col], errors='coerce')
-            df_antiguas = df_temp[df_temp[year_col] < 2016].dropna(subset=[consumo_col])
+            df_visionarios_antiguos = df_temp[df_temp[year_col] < 2016].dropna(subset=[consumo_col])
             
-            if len(df_antiguas) > 0:
-                # Calcular consumo diario promedio
-                consumo_diario_promedio = df_antiguas[consumo_col].mean()
+            if len(df_visionarios_antiguos) > 0:
+                # Calcular consumo diario promedio de visionarios con vehículos antiguos
+                consumo_diario_promedio = df_visionarios_antiguos[consumo_col].mean()
                 
-                # Expandir al universo
-                n_muestra = len(df_filtered)
-                n_universo = KPI_UNIVERSO_TOTAL if KPI_UNIVERSO_TOTAL > 0 else n_muestra
-                factor = n_universo / n_muestra if n_muestra > 0 else 1
+                # Calcular cuántos early adopters del universo tienen vehículos antiguos
+                # Usar el mismo cálculo que el KPI anterior
+                df_year_visionarios = pd.to_numeric(df_visionarios[year_col], errors='coerce').dropna()
+                visionarios_antiguos_muestra = (df_year_visionarios < 2016).sum()
+                total_visionarios_muestra = len(df_year_visionarios)
+                pct_visionarios_antiguos = (visionarios_antiguos_muestra / total_visionarios_muestra * 100) if total_visionarios_muestra > 0 else 0
+                visionarios_antiguos_universo = int(conversions * (pct_visionarios_antiguos / 100))
                 
-                unidades_antiguas_universo = int(len(df_antiguas) * factor)
-                
-                # Aplicar porcentaje de visionarios
-                unidades_antiguas_visionarios = int(unidades_antiguas_universo * visionarios_pct)
-                
-                # Calcular volumen mensual total (solo visionarios) con merma del 15%
+                # Calcular volumen mensual total con merma del 15%
                 consumo_con_merma = consumo_diario_promedio * (1 - MERMA_OPERATIVA)  # Aplicar 15% de merma
-                litros_mensuales_visionarios = consumo_con_merma * unidades_antiguas_visionarios * 30
+                litros_mensuales_visionarios = consumo_con_merma * visionarios_antiguos_universo * 30
                 
                 kpi2_html += f"""
 <div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{litros_mensuales_visionarios:,.0f}</div>
-<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>litros mensuales (segmento visionario neto)</div>
-<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{visionarios_pct*100:.1f}% de {unidades_antiguas_universo:,} unidades antiguas</div>
+<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>litros mensuales (early adopters neto)</div>
+<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{visionarios_antiguos_universo:,} early adopters con vehículos <2016</div>
 <div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Promedio: {consumo_con_merma:.1f} lts/día neto (merma 15%)</div>
 """
             else:
