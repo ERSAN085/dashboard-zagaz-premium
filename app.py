@@ -842,17 +842,19 @@ with kcols[1]:
         </div>
         """, unsafe_allow_html=True)
 with kcols[2]:
-        # KPI dinámico: proyecta cualquier filtro aplicado al universo convertible
-        # Cuenta registros en muestra filtrada y proyecta proporcionalmente
-        registros_filtrados_kpi = len(df_filtered)
-        total_muestra_kpi = len(df)  # Muestra total sin filtros
-        
-        # Factor de expansión: % de muestra filtrada aplicado al universo
-        UNIVERSO_CONVERTIBLE = 1739 + 1331  # Solo Taxi + Uber/Didi
-        if total_muestra_kpi > 0:
-            conversions = int(round((registros_filtrados_kpi / total_muestra_kpi) * UNIVERSO_CONVERTIBLE))
+        # KPI FIJO: solo visionarios del universo total (no cambia con filtros)
+        # Calcular % de visionarios de la muestra completa (df, no df_filtered)
+        perfil_col = find_col(df, ["perfil adop", "perfil", "adopción", "adopcion"])
+        if perfil_col and perfil_col in df.columns:
+            visionarios_muestra = (df[perfil_col] == 'Visionario').sum()
+            total_muestra = len(df)
+            visionarios_pct_fijo = visionarios_muestra / total_muestra if total_muestra > 0 else 0
         else:
-            conversions = 0
+            visionarios_pct_fijo = 0.0
+        
+        # Proyectar al universo convertible (3,070)
+        UNIVERSO_CONVERTIBLE = 1739 + 1331  # Solo Taxi + Uber/Didi
+        conversions = int(round(visionarios_pct_fijo * UNIVERSO_CONVERTIBLE))
         
         # Cargar imagen para el KPI
         img_path_conversiones = Path("assets/uploads/5.png")
