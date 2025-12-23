@@ -1336,13 +1336,13 @@ with col_left:
     from pathlib import Path
     uploads_dir = Path("assets/uploads")
     
-    if uploads_dir.exists():
-        img_files = [f for f in uploads_dir.iterdir() if f.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.webp']]
-        if img_files:
-            latest_img = max(img_files, key=lambda p: p.stat().st_mtime)
-            st.markdown(f"<div style='border:3px solid #10b981; border-radius:8px; overflow:hidden;'><img src='data:image/png;base64,{__import__('base64').b64encode(open(str(latest_img), 'rb').read()).decode()}' style='width:100%; display:block;'></div>", unsafe_allow_html=True)
-        else:
-            st.info("📤 Sube una imagen en el sidebar")
+    # Imagen específica para Puntos Críticos - MAPEO.png
+    target_img = uploads_dir / "MAPEO.png"
+    
+    if target_img.exists():
+        st.markdown(f"<div style='border:3px solid #10b981; border-radius:8px; overflow:hidden;'><img src='data:image/png;base64,{__import__('base64').b64encode(open(str(target_img), 'rb').read()).decode()}' style='width:100%; display:block;'></div>", unsafe_allow_html=True)
+    elif uploads_dir.exists():
+        st.warning("⚠️ No se encontró la imagen 'MAPEO.png' en assets/uploads")
     else:
         st.info("📤 Sube una imagen en el sidebar")
 
