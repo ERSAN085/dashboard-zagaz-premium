@@ -413,6 +413,15 @@ def sidebar_filters(df):
             sel = st.sidebar.multiselect("Dueño / Operador", options=vals, default=vals)
             filters[duenio_col] = sel
 
+    # 5) Disposición GNV - NUEVO FILTRO
+    disp_col = find_col(df, ['Disposición_GNV', 'Disposicion_GNV', 'Disposición GNV', 'Interes_GNV', 'Interés_GNV'])
+    if disp_col:
+        vals = sorted(df[disp_col].dropna().unique().tolist())
+        if vals:
+            sel = st.sidebar.multiselect("Disposición al GNV", options=vals, default=vals, 
+                                        help="Filtra por la disposición de adoptar GNV. 'Sí' = Mayoría Temprana, 'No/Duda' = Mayoría Tardía")
+            filters[disp_col] = sel
+
     # Mantener también rango de fecha si existe
     date_col = detect_date_column(df)
     if date_col:
@@ -777,14 +786,13 @@ st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
 # compute dynamic KPIs
 registros_filtrados = kpis.get('registros_filtrados', 0)
 visionarios_pct = 0.0
-# FIJO: calcular % de visionarios de muestra completa (df), no de df_filtered
-if 'Perfil_Adopción' in df.columns:
+# DINÁMICO: calcular % del perfil seleccionado en df_filtered
+if 'Perfil_Adopción' in df_filtered.columns and len(df_filtered) > 0:
     try:
-        # detectar valores que indiquen 'visionario'
-        values = df['Perfil_Adopción'].dropna().astype(str)
-        mask = values.str.lower().str.contains('vision')
-        if len(values) > 0:
-            visionarios_pct = mask.sum() / len(values)
+        # Contar registros del perfil filtrado sobre el total de la muestra base
+        perfil_filtrado_count = len(df_filtered)
+        total_muestra_base = len(df)
+        visionarios_pct = perfil_filtrado_count / total_muestra_base if total_muestra_base > 0 else 0.0
     except Exception:
         visionarios_pct = 0.0
 
@@ -796,7 +804,7 @@ if 'Consumo_Diario_Lts' in df_filtered.columns:
         consumo_promedio = 0.0
 
 # Título de sección
-st.markdown("<h2 style='color:#003d82; font-size:1.8rem; font-weight:800; margin-top:40px; margin-bottom:20px;'>El Segmento Visionario: Punto de Entrada para el Mercado GNV</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color:#003d82; font-size:1.8rem; font-weight:800; margin-top:40px; margin-bottom:20px;'>Distribución de Perfiles de Adopción del Mercado GNV</h2>", unsafe_allow_html=True)
 
 # KPIs grandes: redistribuir en 3 columnas (Registros validados ahora está en sidebar)
 kcols = st.columns([1,1,1])
@@ -814,10 +822,10 @@ with kcols[0]:
         
         st.markdown(f"""
         <div class='zg-card' style='border:3px solid #10b981; position:relative;'>
-            <div>
-                <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Visionarios detectados</div>
+            <div style='position:relative; z-index:2;'>
+                <div style='font-size:0.85rem; color:#475569; text-transform:uppercase;'>Participación del perfil seleccionado</div>
                 <div style='font-size:2.2rem; font-weight:900; color:#0f172a;'>{visionarios_pct:.1%}</div>
-                <div style='font-size:0.85rem; color:#10b981;'>Segmento listo para adoptar</div>
+                <div style='font-size:0.85rem; color:#10b981;'>Subsegmento sobre el universo analizado</div>
             </div>
             {img_html}
         </div>
@@ -843,19 +851,15 @@ with kcols[1]:
         </div>
         """, unsafe_allow_html=True)
 with kcols[2]:
-        # KPI FIJO: solo visionarios del universo total (no cambia con filtros)
-        # Calcular % de visionarios de la muestra completa (df, no df_filtered)
-        perfil_col = find_col(df, ["perfil adop", "perfil", "adopción", "adopcion"])
-        if perfil_col and perfil_col in df.columns:
-            visionarios_muestra = (df[perfil_col] == 'Visionario').sum()
-            total_muestra = len(df)
-            visionarios_pct_fijo = visionarios_muestra / total_muestra if total_muestra > 0 else 0
-        else:
-            visionarios_pct_fijo = 0.0
+        # KPI DINÁMICO: proyectar perfil filtrado al universo convertible
+        # Calcular % basado en df_filtered (responde a filtros del sidebar)
+        perfil_filtrado_count = len(df_filtered)
+        total_muestra = len(df)
+        perfil_pct_dinamico = perfil_filtrado_count / total_muestra if total_muestra > 0 else 0.0
         
         # Proyectar al universo convertible (3,070)
         UNIVERSO_CONVERTIBLE = 1739 + 1331  # Solo Taxi + Uber/Didi
-        conversions = int(round(visionarios_pct_fijo * UNIVERSO_CONVERTIBLE))
+        conversions = int(round(perfil_pct_dinamico * UNIVERSO_CONVERTIBLE))
         
         # Cargar imagen para el KPI
         img_path_conversiones = Path("assets/uploads/5.png")
@@ -869,9 +873,9 @@ with kcols[2]:
         st.markdown(f"""
         <div style='background:linear-gradient(90deg,#0b8a3b,#16a34a); border-radius:14px; padding:18px; color:white; border:3px solid #10b981; position:relative;'>
             <div>
-                <div style='font-size:0.85rem; text-transform:uppercase; opacity:0.95;'>Número de Conversiones</div>
+                <div style='font-size:0.85rem; text-transform:uppercase; opacity:0.95;'>Conversiones potenciales</div>
                 <div style='font-size:2.2rem; font-weight:900;'>{conversions:,}</div>
-                <div style='font-size:0.85rem; opacity:0.95;'>Early Adopters</div>
+                <div style='font-size:0.85rem; opacity:0.95;'>Unidades asociadas al perfil</div>
             </div>
             {img_html_conversiones}
         </div>
@@ -890,108 +894,216 @@ if 'Perfil_Adopción' in df_filtered.columns:
         import numpy as np
         import plotly.graph_objects as go
         
-        # Calcular distribución real del mercado
-        df_perfil = df_filtered['Perfil_Adopción'].dropna().value_counts()
-        total_muestra = len(df_filtered['Perfil_Adopción'].dropna())
+        # Detectar perfiles presentes
+        perfiles_presentes = set(df_filtered['Perfil_Adopción'].dropna().astype(str).str.strip())
         
-        # Contar cada perfil
-        visionarios = df_perfil.get('Visionario', 0)
-        pragmaticos = df_perfil.get('Pragmático', 0)
-        rezagados = df_perfil.get('Rezagado', 0)
+        tiene_visionarios = 'Visionario' in perfiles_presentes
+        tiene_pragmaticos = 'Pragmático' in perfiles_presentes
+        tiene_rezagados = 'Rezagado' in perfiles_presentes
         
-        # Calcular porcentajes
-        pct_visionarios = (visionarios / total_muestra * 100) if total_muestra > 0 else 0
-        pct_pragmaticos = (pragmaticos / total_muestra * 100) if total_muestra > 0 else 0
-        pct_rezagados = (rezagados / total_muestra * 100) if total_muestra > 0 else 0
+        todos_activos = tiene_visionarios and tiene_pragmaticos and tiene_rezagados
         
-        # Extrapolación al universo total (3070)
-        universo_total = 3070
-        unidades_visionarios = int(universo_total * pct_visionarios / 100)
-        unidades_pragmaticos = int(universo_total * pct_pragmaticos / 100)
-        unidades_rezagados = int(universo_total * pct_rezagados / 100)
+        # Calcular porcentajes sobre el universo COMPLETO (df), no sobre df_filtered
+        df_comp = df['Perfil_Adopción'].dropna()
+        tot_comp = len(df_comp)
         
-        # Crear curva de Gauss (distribución normal)
+        pct_v = ((df_comp == 'Visionario').sum() / tot_comp * 100) if tot_comp > 0 else 0
+        pct_r = ((df_comp == 'Rezagado').sum() / tot_comp * 100) if tot_comp > 0 else 0
+        
+        # NUEVA LÓGICA: Dividir pragmáticos en Mayoría Temprana y Mayoría Tardía
+        # Buscar columna de disposición GNV (puede tener diferentes nombres)
+        disp_col = find_col(df, ['Disposición_GNV', 'Disposicion_GNV', 'Disposición GNV', 'Interes_GNV', 'Interés_GNV'])
+        
+        # DEBUG: Mostrar columnas disponibles si no se encuentra la columna de disposición
+        # (Este mensaje se puede comentar una vez que confirmes que funciona correctamente)
+        if not disp_col or disp_col not in df.columns:
+            with st.expander("🔍 Ayuda de depuración - Columnas disponibles en el dataset", expanded=False):
+                st.write("No se encontró una columna de 'Disposición_GNV'. Columnas disponibles:")
+                st.write(list(df.columns))
+                st.info("💡 Para que la división de pragmáticos funcione correctamente, asegúrate de que tu dataset tenga una columna con uno de estos nombres: 'Disposición_GNV', 'Disposicion_GNV', 'Disposición GNV', 'Interes_GNV', o 'Interés_GNV'")
+        
+        # Filtrar solo pragmáticos del dataset completo
+        df_pragmaticos = df[df['Perfil_Adopción'] == 'Pragmático'].copy()
+        total_pragmaticos = len(df_pragmaticos)
+        
+        # Inicializar subcategorías
+        pct_p_temprana = 0
+        pct_p_tardia = 0
+        unid_p_temprana = 0
+        unid_p_tardia = 0
+        
+        if disp_col and disp_col in df.columns and total_pragmaticos > 0:
+            # Clasificar pragmáticos según disposición GNV
+            # Mayoría Temprana: respondieron "Sí"
+            # Mayoría Tardía: respondieron "No" o "Duda"
+            pragmaticos_si = df_pragmaticos[df_pragmaticos[disp_col].astype(str).str.lower().isin(['si', 'sí', 'yes', 's'])].shape[0]
+            pragmaticos_no_duda = df_pragmaticos[~df_pragmaticos[disp_col].astype(str).str.lower().isin(['si', 'sí', 'yes', 's'])].shape[0]
+            
+            # Calcular porcentajes sobre el universo total
+            pct_p_temprana = (pragmaticos_si / tot_comp * 100) if tot_comp > 0 else 0
+            pct_p_tardia = (pragmaticos_no_duda / tot_comp * 100) if tot_comp > 0 else 0
+            
+            # Unidades del universo convertible
+            univ = 3070
+            unid_p_temprana = int(univ * pragmaticos_si / tot_comp) if tot_comp > 0 else 0
+            unid_p_tardia = int(univ * pragmaticos_no_duda / tot_comp) if tot_comp > 0 else 0
+        else:
+            # Si no existe la columna de disposición, usar la lógica anterior (sin división)
+            pct_p = ((df_comp == 'Pragmático').sum() / tot_comp * 100) if tot_comp > 0 else 0
+            pct_p_temprana = pct_p / 2  # Dividir en partes iguales por defecto
+            pct_p_tardia = pct_p / 2
+            univ = 3070
+            unid_p = int(univ * (df_comp == 'Pragmático').sum() / tot_comp) if tot_comp > 0 else 0
+            unid_p_temprana = unid_p // 2
+            unid_p_tardia = unid_p - unid_p_temprana
+        
+        # Unidades del universo convertible para visionarios y rezagados
+        univ = 3070
+        unid_v = int(univ * (df_comp == 'Visionario').sum() / tot_comp) if tot_comp > 0 else 0
+        unid_r = int(univ * (df_comp == 'Rezagado').sum() / tot_comp) if tot_comp > 0 else 0
+        
+        # NUEVA LÓGICA: Detectar qué está seleccionado en el filtro de Disposición GNV
+        disposicion_filtrada = []
+        if disp_col and disp_col in df_filtered.columns:
+            disposicion_filtrada = df_filtered[disp_col].dropna().astype(str).str.lower().unique().tolist()
+        
+        # Determinar si está filtrada solo Mayoría Temprana (Sí) o Mayoría Tardía (No/Duda)
+        tiene_si = any(val in ['si', 'sí', 'yes', 's'] for val in disposicion_filtrada)
+        tiene_no_duda = any(val not in ['si', 'sí', 'yes', 's'] for val in disposicion_filtrada)
+        
+        # Si no hay filtro de disposición (todos seleccionados o columna no existe), mostrar ambas
+        if not disposicion_filtrada or (tiene_si and tiene_no_duda):
+            tiene_mayoria_temprana = tiene_pragmaticos
+            tiene_mayoria_tardia = tiene_pragmaticos
+        else:
+            # Si solo está filtrado "Sí", solo mostrar Mayoría Temprana
+            tiene_mayoria_temprana = tiene_si and tiene_pragmaticos
+            # Si solo está filtrado "No/Duda", solo mostrar Mayoría Tardía
+            tiene_mayoria_tardia = tiene_no_duda and tiene_pragmaticos
+        
+        # Definir colores para 4 categorías con lógica interactiva
+        if todos_activos and (not disposicion_filtrada or (tiene_si and tiene_no_duda)):
+            # Todos los perfiles activos y sin filtro de disposición específico
+            cv = 'rgba(37,99,235,0.95)'  # Visionarios - Azul oscuro
+            cp_temprana = 'rgba(34,197,94,0.7)'  # Mayoría Temprana - Verde
+            cp_tardia = 'rgba(245,158,11,0.7)'  # Mayoría Tardía - Naranja
+            cr = 'rgba(156,163,175,0.4)'  # Rezagados - Gris
+            tv = "#2563EB"
+            tp_temprana = "#059669"
+            tp_tardia = "#D97706"
+            tr = "#9CA3AF"
+        else:
+            # Colores según lo que está activo/filtrado
+            cv = 'rgba(37,99,235,0.95)' if tiene_visionarios else 'rgba(156,163,175,0.3)'
+            cp_temprana = 'rgba(34,197,94,0.7)' if tiene_mayoria_temprana else 'rgba(156,163,175,0.3)'
+            cp_tardia = 'rgba(245,158,11,0.7)' if tiene_mayoria_tardia else 'rgba(156,163,175,0.3)'
+            cr = 'rgba(37,99,235,0.95)' if tiene_rezagados else 'rgba(156,163,175,0.3)'
+            tv = "#2563EB" if tiene_visionarios else "#9CA3AF"
+            tp_temprana = "#059669" if tiene_mayoria_temprana else "#9CA3AF"
+            tp_tardia = "#D97706" if tiene_mayoria_tardia else "#9CA3AF"
+            tr = "#2563EB" if tiene_rezagados else "#9CA3AF"
+        
+        # Curva de Gauss
         x = np.linspace(-4, 4, 1000)
         y = (1 / np.sqrt(2 * np.pi)) * np.exp(-0.5 * x**2)
-        
-        # Normalizar para que sea más visual
         y = y / y.max() * 100
         
-        fig_gauss = go.Figure()
+        fig = go.Figure()
         
-        # Áreas coloreadas según adopción - ORDEN: Visionarios (izq), Pragmáticos (centro), Rezagados (der)
-        # Visionarios (izquierda) - #2563EB
-        mask_visionarios = x <= -1.5
-        fig_gauss.add_trace(go.Scatter(
-            x=x[mask_visionarios],
-            y=y[mask_visionarios],
-            fill='tozeroy',
-            fillcolor='rgba(37, 99, 235, 0.95)',  # #2563EB
-            line=dict(color='rgba(0, 123, 255, 0)', width=0),
-            name=f'Visionarios: {pct_visionarios:.1f}%',
-            hovertemplate=f'<b>Visionarios</b><br>{pct_visionarios:.1f}% ({unidades_visionarios:,} unidades)<extra></extra>',
-            showlegend=True
+        # Áreas - AHORA CON 4 SEGMENTOS
+        # Visionarios: x <= -1.5
+        fig.add_trace(go.Scatter(
+            x=x[x<=-1.5], 
+            y=y[x<=-1.5], 
+            fill='tozeroy', 
+            fillcolor=cv, 
+            line=dict(width=0), 
+            name=f'Visionarios: {pct_v:.1f}%', 
+            hovertemplate=f'<b>Visionarios</b><br>{pct_v:.1f}% ({unid_v:,} unidades)<extra></extra>'
         ))
         
-        # Pragmáticos (centro) - Gris medio
-        mask_pragmaticos = (x > -1.5) & (x <= 1.5)
-        fig_gauss.add_trace(go.Scatter(
-            x=x[mask_pragmaticos],
-            y=y[mask_pragmaticos],
-            fill='tozeroy',
-            fillcolor='rgba(107, 114, 128, 0.6)',  # Gris medio
-            line=dict(color='rgba(168, 213, 172, 0)', width=0),
-            name=f'Pragmáticos: {pct_pragmaticos:.1f}%',
-            hovertemplate=f'<b>Pragmáticos</b><br>{pct_pragmaticos:.1f}% ({unidades_pragmaticos:,} unidades)<extra></extra>',
-            showlegend=True
+        # Mayoría Temprana (Pragmáticos con disposición Sí): -1.5 < x <= 0
+        fig.add_trace(go.Scatter(
+            x=x[(x>-1.5)&(x<=0)], 
+            y=y[(x>-1.5)&(x<=0)], 
+            fill='tozeroy', 
+            fillcolor=cp_temprana, 
+            line=dict(width=0), 
+            name=f'Mayoría Temprana: {pct_p_temprana:.1f}%', 
+            hovertemplate=f'<b>Mayoría Temprana</b><br>{pct_p_temprana:.1f}% ({unid_p_temprana:,} unidades)<extra></extra>'
         ))
         
-        # Rezagados (derecha) - Gris claro
-        mask_rezagados = x > 1.5
-        fig_gauss.add_trace(go.Scatter(
-            x=x[mask_rezagados],
-            y=y[mask_rezagados],
-            fill='tozeroy',
-            fillcolor='rgba(156, 163, 175, 0.4)',  # Gris claro
-            line=dict(color='rgba(217, 230, 211, 0)', width=0),
-            name=f'Rezagados: {pct_rezagados:.1f}%',
-            hovertemplate=f'<b>Rezagados</b><br>{pct_rezagados:.1f}% ({unidades_rezagados:,} unidades)<extra></extra>',
-            showlegend=True
+        # Mayoría Tardía (Pragmáticos con disposición No/Duda): 0 < x <= 1.5
+        fig.add_trace(go.Scatter(
+            x=x[(x>0)&(x<=1.5)], 
+            y=y[(x>0)&(x<=1.5)], 
+            fill='tozeroy', 
+            fillcolor=cp_tardia, 
+            line=dict(width=0), 
+            name=f'Mayoría Tardía: {pct_p_tardia:.1f}%', 
+            hovertemplate=f'<b>Mayoría Tardía</b><br>{pct_p_tardia:.1f}% ({unid_p_tardia:,} unidades)<extra></extra>'
+        ))
+        
+        # Rezagados: x > 1.5
+        fig.add_trace(go.Scatter(
+            x=x[x>1.5], 
+            y=y[x>1.5], 
+            fill='tozeroy', 
+            fillcolor=cr, 
+            line=dict(width=0), 
+            name=f'Rezagados: {pct_r:.1f}%', 
+            hovertemplate=f'<b>Rezagados</b><br>{pct_r:.1f}% ({unid_r:,} unidades)<extra></extra>'
         ))
         
         # Línea de la curva
-        fig_gauss.add_trace(go.Scatter(
-            x=x,
-            y=y,
-            mode='lines',
-            line=dict(color='#0f172a', width=2),
-            name='Curva de Adopción',
-            showlegend=False,
-            hoverinfo='skip'
-        ))
+        fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color='#0f172a', width=2), showlegend=False, hoverinfo='skip'))
         
-        # Anotaciones con porcentajes y unidades - reordenadas según nuevo layout
-        annotations = [
-            dict(x=-2.5, y=20, text=f"<b>Visionarios</b><br>{pct_visionarios:.1f}%<br>{unidades_visionarios:,} unidades", 
-                 showarrow=False, font=dict(size=11, color="#2563EB")),
-            dict(x=0, y=85, text=f"<b>Pragmáticos</b><br>{pct_pragmaticos:.1f}%<br>{unidades_pragmaticos:,} unidades", 
-                 showarrow=False, font=dict(size=12, color="#6B7280")),
-            dict(x=2.5, y=20, text=f"<b>Rezagados</b><br>{pct_rezagados:.1f}%<br>{unidades_rezagados:,} unidades", 
-                 showarrow=False, font=dict(size=11, color="#9CA3AF"))
-        ]
+        # Anotaciones - AHORA CON 4 CATEGORÍAS (INTERACTIVAS)
+        anot = []
+        if tiene_visionarios:
+            anot.append(dict(
+                x=-2.5, y=20, 
+                text=f"<b>Visionarios</b><br>{pct_v:.1f}%<br>{unid_v:,} unidades", 
+                showarrow=False, 
+                font=dict(size=11, color=tv)
+            ))
+        # Solo mostrar anotación de Mayoría Temprana si está activa
+        if tiene_mayoria_temprana:
+            anot.append(dict(
+                x=-0.75, y=60, 
+                text=f"<b>Mayoría<br>Temprana</b><br>{pct_p_temprana:.1f}%<br>{unid_p_temprana:,} unids", 
+                showarrow=False, 
+                font=dict(size=10, color=tp_temprana)
+            ))
+        # Solo mostrar anotación de Mayoría Tardía si está activa
+        if tiene_mayoria_tardia:
+            anot.append(dict(
+                x=0.75, y=60, 
+                text=f"<b>Mayoría<br>Tardía</b><br>{pct_p_tardia:.1f}%<br>{unid_p_tardia:,} unids", 
+                showarrow=False, 
+                font=dict(size=10, color=tp_tardia)
+            ))
+        if tiene_rezagados:
+            anot.append(dict(
+                x=2.5, y=20, 
+                text=f"<b>Rezagados</b><br>{pct_r:.1f}%<br>{unid_r:,} unidades", 
+                showarrow=False, 
+                font=dict(size=11, color=tr)
+            ))
         
-        fig_gauss.update_layout(
+        fig.update_layout(
             title={'text': 'Distribución Real de Perfiles de Adopción en Puerto Vallarta', 'x': 0.5, 'xanchor': 'center', 'font': {'size': 16}},
             xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
             yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, range=[0, 110]),
             height=520,
             margin=dict(t=60, b=20, l=20, r=20),
             plot_bgcolor='white',
-            annotations=annotations,
+            annotations=anot,
             legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5)
         )
         
-        st.plotly_chart(fig_gauss, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
+        
     except Exception as e:
         st.warning(f'No fue posible generar la curva de adopción: {e}')
 else:
@@ -1064,12 +1176,38 @@ with col_anual:
 
 # Segunda fila: Notas metodológicas (ancho completo) - AHORA EN EXPANDER
 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-notas_html = """
+
+# Construir el mensaje de división de pragmáticos si está disponible
+division_pragmaticos_html = ""
+if 'Perfil_Adopción' in df_filtered.columns:
+    df_comp_temp = df['Perfil_Adopción'].dropna()
+    tot_comp_temp = len(df_comp_temp)
+    disp_col_temp = find_col(df, ['Disposición_GNV', 'Disposicion_GNV', 'Disposición GNV', 'Interes_GNV', 'Interés_GNV'])
+    df_pragmaticos_temp = df[df['Perfil_Adopción'] == 'Pragmático'].copy()
+    total_pragmaticos_temp = len(df_pragmaticos_temp)
+    
+    if disp_col_temp and disp_col_temp in df.columns and total_pragmaticos_temp > 0:
+        pragmaticos_si_temp = df_pragmaticos_temp[df_pragmaticos_temp[disp_col_temp].astype(str).str.lower().isin(['si', 'sí', 'yes', 's'])].shape[0]
+        pragmaticos_no_duda_temp = df_pragmaticos_temp[~df_pragmaticos_temp[disp_col_temp].astype(str).str.lower().isin(['si', 'sí', 'yes', 's'])].shape[0]
+        pct_p_temprana_temp = (pragmaticos_si_temp / tot_comp_temp * 100) if tot_comp_temp > 0 else 0
+        pct_p_tardia_temp = (pragmaticos_no_duda_temp / tot_comp_temp * 100) if tot_comp_temp > 0 else 0
+        univ_temp = 3070
+        unid_p_temprana_temp = int(univ_temp * pragmaticos_si_temp / tot_comp_temp) if tot_comp_temp > 0 else 0
+        unid_p_tardia_temp = int(univ_temp * pragmaticos_no_duda_temp / tot_comp_temp) if tot_comp_temp > 0 else 0
+        
+        division_pragmaticos_html = f"""&middot; <b>📊 División de Pragmáticos:</b> El segmento de pragmáticos se ha dividido en dos categorías basándose en la disposición al GNV:<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <b>Mayoría Temprana</b> ({pct_p_temprana_temp:.1f}%, {unid_p_temprana_temp:,} unidades): Pragmáticos que respondieron "Sí" a la disposición de adoptar GNV.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <b>Mayoría Tardía</b> ({pct_p_tardia_temp:.1f}%, {unid_p_tardia_temp:,} unidades): Pragmáticos que respondieron "No" o "Duda" a la disposición de adoptar GNV.<br>"""
+    else:
+        division_pragmaticos_html = """&middot; <b>División de Pragmáticos:</b> El segmento pragmático se subdivide en "Mayoría Temprana" y "Mayoría Tardía", reflejando diferentes niveles de apertura dentro del mismo perfil de adopción.<br>"""
+
+notas_html = f"""
 <div class='zg-card' style='border:3px solid #10b981;'>
     <div style='font-size:0.85rem; color:#475569; text-transform:uppercase; margin-bottom:12px;'>Notas metodológicas</div>
     <div style='font-size:0.9rem; color:#374151; line-height:1.5;'>
     &middot; Esta cifra NO corresponde a convertir únicamente a los visionarios detectados en las 273 encuestas.<br>
     &middot; La muestra es estadísticamente suficiente para extrapolar con precisión el comportamiento al universo total de operadores en Vallarta.<br>
+    {division_pragmaticos_html}
     &middot; El Potencial Mensual incorpora una merma operativa del 15%, derivada de pérdidas por presión y temperatura en el despacho de GNV. En operación real, un cilindro de 16 LEQ carga en promedio 13.6 LEQ efectivos.<br>
     &middot; El cálculo estima el consumo mensual del segmento visionario completo del mercado (visionarios del universo × consumo diario × 26 días).<br>
     &middot; Este escenario muestra el potencial bruto; a la cifra final habría que aplicarle el proceso natural de decantación propio del negocio GNV, evaluación técnica, elegibilidad de crédito y filtros operativos, para obtener el volumen neto real.<br>
