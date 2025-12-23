@@ -1406,7 +1406,7 @@ with col_right:
 # NUEVA SECCIÓN: Análisis de Modelos y Antigüedad del Parque Vehicular
 # =====================================================================
 st.markdown("<div style='margin-top:40px;'></div>", unsafe_allow_html=True)
-st.markdown("<h2 style='color:#003d82; font-size:1.8rem; font-weight:800; margin-top:40px; margin-bottom:20px;'>Diagnóstico del Parque Actual y Potencial de Sustitución Early Adopter</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color:#003d82; font-size:1.8rem; font-weight:800; margin-top:40px; margin-bottom:20px;'>Análisis de Antigüedad y Potencial de Sustitución por Perfil</h2>", unsafe_allow_html=True)
 
 col_graf, col_kpi1, col_kpi2 = st.columns([1.5, 1, 1])
 
@@ -1468,29 +1468,56 @@ with col_kpi1:
     
     if year_col and year_col in df_filtered.columns:
         try:
-            # Filtrar solo visionarios de la muestra
+            # Detectar qué perfiles están filtrados para texto dinámico
             perfil_col = find_col(df_filtered, ["perfil adop", "perfil", "adopción", "adopcion"])
+            disp_col = find_col(df_filtered, ['Disposición_GNV', 'Disposicion_GNV', 'Disposición GNV', 'Interes_GNV', 'Interés_GNV'])
+            
+            # Determinar nombre del segmento para textos dinámicos
+            perfiles_en_filtro = []
             if perfil_col and perfil_col in df_filtered.columns:
-                df_visionarios = df_filtered[df_filtered[perfil_col] == 'Visionario']
+                perfiles_en_filtro = df_filtered[perfil_col].dropna().unique().tolist()
+            
+            disposicion_en_filtro = []
+            if disp_col and disp_col in df_filtered.columns:
+                disposicion_en_filtro = df_filtered[disp_col].dropna().astype(str).str.lower().unique().tolist()
+            
+            # Generar nombre dinámico del segmento
+            tiene_si = any(val in ['si', 'sí', 'yes', 's'] for val in disposicion_en_filtro)
+            tiene_no_duda = any(val not in ['si', 'sí', 'yes', 's'] for val in disposicion_en_filtro)
+            
+            if len(perfiles_en_filtro) == 1:
+                if perfiles_en_filtro[0] == 'Visionario':
+                    nombre_segmento = 'visionarios'
+                elif perfiles_en_filtro[0] == 'Pragmático':
+                    if tiene_si and not tiene_no_duda:
+                        nombre_segmento = 'mayoría temprana'
+                    elif tiene_no_duda and not tiene_si:
+                        nombre_segmento = 'mayoría tardía'
+                    else:
+                        nombre_segmento = 'pragmáticos'
+                elif perfiles_en_filtro[0] == 'Rezagado':
+                    nombre_segmento = 'rezagados'
+                else:
+                    nombre_segmento = 'unidades del perfil seleccionado'
             else:
-                df_visionarios = df_filtered  # Fallback si no existe la columna
+                nombre_segmento = 'unidades del perfil seleccionado'
             
-            # De los visionarios, cuántos tienen vehículos <2016
-            df_year_visionarios = pd.to_numeric(df_visionarios[year_col], errors='coerce').dropna()
-            visionarios_antiguos_muestra = (df_year_visionarios < 2016).sum()
-            total_visionarios_muestra = len(df_year_visionarios)
+            # Usar df_filtered directamente (ya tiene todos los filtros aplicados)
+            df_year_filtered = pd.to_numeric(df_filtered[year_col], errors='coerce').dropna()
+            antiguos_muestra = (df_year_filtered < 2016).sum()
+            total_muestra = len(df_year_filtered)
             
-            # Calcular porcentaje de visionarios con vehículos antiguos
-            pct_visionarios_antiguos = (visionarios_antiguos_muestra / total_visionarios_muestra * 100) if total_visionarios_muestra > 0 else 0
+            # Calcular porcentaje con vehículos antiguos
+            pct_antiguos = (antiguos_muestra / total_muestra * 100) if total_muestra > 0 else 0
             
-            # Aplicar ese porcentaje a los early adopters del universo (conversions)
-            visionarios_antiguos_universo = int(conversions * (pct_visionarios_antiguos / 100))
+            # Aplicar ese porcentaje a las conversiones del universo (conversions ya está calculado con filtros)
+            antiguos_universo = int(conversions * (pct_antiguos / 100))
             
             kpi1_html += f"""
-<div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{visionarios_antiguos_universo:,}</div>
-<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>early adopters (fase sustitución)</div>
-<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{pct_visionarios_antiguos:.1f}% de {conversions:,} early adopters totales</div>
-<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Base: {visionarios_antiguos_muestra} de {total_visionarios_muestra} visionarios en muestra</div>
+<div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{antiguos_universo:,}</div>
+<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>{nombre_segmento} (fase sustitución)</div>
+<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{pct_antiguos:.1f}% de {conversions:,} {nombre_segmento} totales</div>
+<div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Base: {antiguos_muestra} de {total_muestra} {nombre_segmento} en muestra</div>
 """
         except Exception as e:
             kpi1_html += f"<div style='color:#ef4444; font-size:0.85rem;'>Error calculando antigüedad: {e}</div>"
@@ -1519,39 +1546,63 @@ with col_kpi2:
     
     if year_col and consumo_col and year_col in df_filtered.columns and consumo_col in df_filtered.columns:
         try:
-            # Filtrar solo visionarios de la muestra
+            # Detectar nombre del segmento (igual que KPI1)
             perfil_col = find_col(df_filtered, ["perfil adop", "perfil", "adopción", "adopcion"])
-            if perfil_col and perfil_col in df_filtered.columns:
-                df_visionarios = df_filtered[df_filtered[perfil_col] == 'Visionario']
-            else:
-                df_visionarios = df_filtered  # Fallback
+            disp_col = find_col(df_filtered, ['Disposición_GNV', 'Disposicion_GNV', 'Disposición GNV', 'Interes_GNV', 'Interés_GNV'])
             
-            # De los visionarios, filtrar <2016 con datos de consumo
-            df_temp = df_visionarios.copy()
+            perfiles_en_filtro = []
+            if perfil_col and perfil_col in df_filtered.columns:
+                perfiles_en_filtro = df_filtered[perfil_col].dropna().unique().tolist()
+            
+            disposicion_en_filtro = []
+            if disp_col and disp_col in df_filtered.columns:
+                disposicion_en_filtro = df_filtered[disp_col].dropna().astype(str).str.lower().unique().tolist()
+            
+            tiene_si = any(val in ['si', 'sí', 'yes', 's'] for val in disposicion_en_filtro)
+            tiene_no_duda = any(val not in ['si', 'sí', 'yes', 's'] for val in disposicion_en_filtro)
+            
+            if len(perfiles_en_filtro) == 1:
+                if perfiles_en_filtro[0] == 'Visionario':
+                    nombre_segmento = 'visionarios'
+                elif perfiles_en_filtro[0] == 'Pragmático':
+                    if tiene_si and not tiene_no_duda:
+                        nombre_segmento = 'mayoría temprana'
+                    elif tiene_no_duda and not tiene_si:
+                        nombre_segmento = 'mayoría tardía'
+                    else:
+                        nombre_segmento = 'pragmáticos'
+                elif perfiles_en_filtro[0] == 'Rezagado':
+                    nombre_segmento = 'rezagados'
+                else:
+                    nombre_segmento = 'unidades del perfil seleccionado'
+            else:
+                nombre_segmento = 'unidades del perfil seleccionado'
+            
+            # Usar df_filtered directamente (ya filtrado)
+            df_temp = df_filtered.copy()
             df_temp[year_col] = pd.to_numeric(df_temp[year_col], errors='coerce')
             df_temp[consumo_col] = pd.to_numeric(df_temp[consumo_col], errors='coerce')
-            df_visionarios_antiguos = df_temp[df_temp[year_col] < 2016].dropna(subset=[consumo_col])
+            df_filtered_antiguos = df_temp[df_temp[year_col] < 2016].dropna(subset=[consumo_col])
             
-            if len(df_visionarios_antiguos) > 0:
-                # Calcular consumo diario promedio de visionarios con vehículos antiguos
-                consumo_diario_promedio = df_visionarios_antiguos[consumo_col].mean()
+            if len(df_filtered_antiguos) > 0:
+                # Calcular consumo diario promedio del segmento con vehículos antiguos
+                consumo_diario_promedio = df_filtered_antiguos[consumo_col].mean()
                 
-                # Calcular cuántos early adopters del universo tienen vehículos antiguos
-                # Usar el mismo cálculo que el KPI anterior
-                df_year_visionarios = pd.to_numeric(df_visionarios[year_col], errors='coerce').dropna()
-                visionarios_antiguos_muestra = (df_year_visionarios < 2016).sum()
-                total_visionarios_muestra = len(df_year_visionarios)
-                pct_visionarios_antiguos = (visionarios_antiguos_muestra / total_visionarios_muestra * 100) if total_visionarios_muestra > 0 else 0
-                visionarios_antiguos_universo = int(conversions * (pct_visionarios_antiguos / 100))
+                # Calcular cuántas unidades del universo tienen vehículos antiguos
+                df_year_filtered = pd.to_numeric(df_filtered[year_col], errors='coerce').dropna()
+                antiguos_muestra = (df_year_filtered < 2016).sum()
+                total_muestra = len(df_year_filtered)
+                pct_antiguos = (antiguos_muestra / total_muestra * 100) if total_muestra > 0 else 0
+                antiguos_universo = int(conversions * (pct_antiguos / 100))
                 
                 # Calcular volumen mensual total con merma del 15%
-                consumo_con_merma = consumo_diario_promedio * (1 - MERMA_OPERATIVA)  # Aplicar 15% de merma
-                litros_mensuales_visionarios = consumo_con_merma * visionarios_antiguos_universo * 30
+                consumo_con_merma = consumo_diario_promedio * (1 - MERMA_OPERATIVA)
+                litros_mensuales_segmento = consumo_con_merma * antiguos_universo * 30
                 
                 kpi2_html += f"""
-<div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{litros_mensuales_visionarios:,.0f}</div>
-<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>litros mensuales (early adopters neto)</div>
-<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{visionarios_antiguos_universo:,} early adopters con vehículos <2016</div>
+<div style='font-size:4rem; font-weight:900; color:#0f172a; margin-top:15px;'>{litros_mensuales_segmento:,.0f}</div>
+<div style='font-size:1.1rem; color:#10b981; margin-top:12px; font-weight:600;'>litros mensuales ({nombre_segmento} neto)</div>
+<div style='font-size:0.95rem; color:#94a3b8; margin-top:10px;'>{antiguos_universo:,} {nombre_segmento} con vehículos <2016</div>
 <div style='font-size:0.85rem; color:#cbd5e1; margin-top:12px;'>Promedio: {consumo_con_merma:.1f} lts/día neto (merma 15%)</div>
 """
             else:
